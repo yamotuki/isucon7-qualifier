@@ -3,7 +3,12 @@
 phpのコードとwebapp配下のREADMEについてはこちらで途中まで管理していたが、複数サーバ構成にするにあたりこちらのレポジトリに移ってきた。
 https://github.com/yamotuki/isucon7-qualifier-php
 
+webapp3台構成で動かせるようにして、nginxで振り分け。iconは1台目でさばいて、他のリクエストは3台に流すようにした。
+ "score": 77589,
+あんまりよくなってねー
+CPUは3台とも80パーセントくらいでいい感じ。ネットワークはそれぞれ25MBitくらいでサチってない。
 
+dstat は netの単位が Byte, vnstat -l は bit なので紛らわしい。
 
 
 ISUCON7 予選問題
