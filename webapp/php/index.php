@@ -18,7 +18,7 @@ define("AVATAR_MAX_SIZE", 1 * 1024 * 1024);
 function getRedis() 
 {
     return new Predis\Client([
-       'host'   => '127.0.0.1',
+       'host'   => '172.24.50.39',
        'port'   => 6379
     ]);
 }
