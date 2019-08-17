@@ -65,7 +65,7 @@
     - libxslt1-dev
     - libcurl4-openssl-dev
     - libjpeg-turbo8-dev
-    - libpng12-dev
+    - libpng-dev
     - libtidy-dev
 
 - name: Get number of CPUs
