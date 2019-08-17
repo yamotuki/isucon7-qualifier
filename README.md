@@ -1,3 +1,11 @@
+書き換え部分について
+=====
+phpのコードとwebapp配下のREADMEについてはこちらで途中まで管理していたが、複数サーバ構成にするにあたりこちらのレポジトリに移ってきた。
+https://github.com/yamotuki/isucon7-qualifier-php
+
+
+
+
 ISUCON7 予選問題
 ====
 
