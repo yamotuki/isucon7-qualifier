@@ -9,13 +9,13 @@
   gather_facts: yes
 
   roles:
-    - common
-    - bench
-    - golang
+   - common
+   - bench
+#    - golang
 #   - nodejs
 #   - perl
-#   - php
+   - php
 #   - python
 #   - ruby
-    - mysql
-    - nginx
+#   - mysql
+# - nginx

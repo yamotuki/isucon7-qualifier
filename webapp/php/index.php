@@ -15,6 +15,14 @@ date_default_timezone_set('Asia/Tokyo');
 define("TWIG_TEMPLATE_FOLDER", realpath(__DIR__) . "/views");
 define("AVATAR_MAX_SIZE", 1 * 1024 * 1024);
 
+function getRedis() 
+{
+    return new Predis\Client([
+       'host'   => '127.0.0.1',
+       'port'   => 6379
+    ]);
+}
+
 function getPDO()
 {
     static $pdo = null;
@@ -63,14 +71,33 @@ $app->get('/initialize', function (Request $request, Response $response) {
     $dbh->query("DELETE FROM channel WHERE id > 10");
     $dbh->query("DELETE FROM message WHERE id > 10000");
     $dbh->query("DELETE FROM haveread");
+
+    $client = getRedis();
+    $users = $dbh->query("SELECT name, password FROM user");
+    foreach ($users as $user) {
+	    $client->set($user['name'], serialize($user));
+	    $client->set($user['id'], serialize($user));
+    }
+
     $response->withStatus(204);
 });
 
 function db_get_user($dbh, $userId)
 {
+    $client = getRedis();
+    $cached = $client->get($userId);
+    if ($cached) {
+	 return unserialize($cached);
+    }
+
     $stmt = $dbh->prepare("SELECT * FROM user WHERE id = ?");
     $stmt->execute([$userId]);
-    return $stmt->fetch();
+
+    $user = $stmt->fetch();
+    $client->set($userId, serialize($user));
+    $client->set($user['name'], serialize($user));
+
+    return $user;
 }
 
 function db_add_message($dbh, $channelId, $userId, $message)
@@ -112,7 +139,8 @@ function random_string($length)
 
 function register($dbh, $userName, $password)
 {
-    $salt = random_string(20);
+//	 $salt = random_string(20);
+	$salt = 'salt';
     $passDigest = sha1(utf8_encode($salt . $password));
     $stmt = $dbh->prepare(
         "INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) ".
@@ -120,7 +148,10 @@ function register($dbh, $userName, $password)
     );
     $stmt->execute([$userName, $salt, $passDigest, $userName]);
     $stmt = $dbh->query("SELECT LAST_INSERT_ID() AS last_insert_id");
-    return $stmt->fetch()['last_insert_id'];
+
+    $userId = $stmt->fetch()['last_insert_id'];
+
+    return $userId;
 }
 
 $app->get('/', function (Request $request, Response $response) {
@@ -188,7 +219,7 @@ $app->get('/login', function (Request $request, Response $response) {
 $app->post('/login', function (Request $request, Response $response) {
     $name = $request->getParam('name');
     $password = $request->getParam('password');
-    $stmt = getPDO()->prepare("SELECT * FROM user WHERE name = ?");
+    $stmt = getPDO()->prepare("SELECT id, name, password, salt FROM user WHERE name = ? LIMIT 1");
     $stmt->execute([$name]);
     $user = $stmt->fetch();
     if (!$user || $user['password'] !== sha1(utf8_encode($user['salt'] . $password))) {
@@ -225,20 +256,24 @@ $app->get('/message', function (Request $request, Response $response) {
     $lastMessageId = $request->getParam('last_message_id');
     $dbh = getPDO();
     $stmt = $dbh->prepare(
-        "SELECT * ".
-        "FROM message ".
-        "WHERE id > ? AND channel_id = ? ORDER BY id DESC LIMIT 100"
+        "SELECT message.id as message_id, user.id as user_id, channel_id, content, message.created_at as date, name, display_name, avatar_icon ".
+	"FROM message ".
+	"INNER JOIN user ON message.user_id = user.id ".
+        "WHERE message.id > ? AND message.channel_id = ? ORDER BY message.id DESC LIMIT 100"
     );
     $stmt->execute([$lastMessageId, $channelId]);
     $rows = $stmt->fetchall();
     $res = [];
     foreach ($rows as $row) {
         $r = [];
-        $r['id'] = (int)$row['id'];
-        $stmt = $dbh->prepare("SELECT name, display_name, avatar_icon FROM user WHERE id = ?");
-        $stmt->execute([$row['user_id']]);
-        $r['user'] = $stmt->fetch();
-        $r['date'] = str_replace('-', '/', $row['created_at']);
+        $r['id'] = (int)$row['message_id'];
+	$r['user'] = [
+		'id' => (int)$row['user_id'],
+		'name' => $row['name'],
+		'display_name' => $row['display_name'],
+		'avatar_icon' => $row['avatar_icon']
+	];
+        $r['date'] = str_replace('-', '/', $row['date']);
         $r['content'] = $row['content'];
         $res[] = $r;
     }
@@ -246,7 +281,7 @@ $app->get('/message', function (Request $request, Response $response) {
 
     $maxMessageId = 0;
     foreach ($rows as $row) {
-        $maxMessageId = max($maxMessageId, $row['id']);
+        $maxMessageId = max($maxMessageId, $row['message_id']);
     }
     $stmt = $dbh->prepare(
         "INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ".
@@ -263,7 +298,7 @@ $app->get('/fetch', function (Request $request, Response $response) {
         return $response->withStatus(403);
     }
 
-    sleep(1);
+ #   sleep(1);
 
     $dbh = getPDO();
     $stmt = $dbh->query('SELECT id FROM channel');
@@ -331,21 +366,24 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
 
     $offset = ($page - 1) * $pageSize;
     $stmt = $dbh->prepare(
-        "SELECT * ".
+        "SELECT message.id as message_id, user.id as user_id, channel_id, content, message.created_at as date, name, display_name, avatar_icon ".
         "FROM message ".
-        "WHERE channel_id = ? ORDER BY id DESC LIMIT $pageSize OFFSET $offset"
+        "INNER JOIN user ON message.user_id = user.id ".
+        "WHERE channel_id = ? ORDER BY message.id DESC LIMIT $pageSize OFFSET $offset"
     );
     $stmt->execute([$channelId]);
-
     $rows = $stmt->fetchall();
     $messages = [];
     foreach ($rows as $row) {
         $r = [];
-        $r['id'] = (int)$row['id'];
-        $stmt = $dbh->prepare("SELECT name, display_name, avatar_icon FROM user WHERE id = ?");
-        $stmt->execute([$row['user_id']]);
-        $r['user'] = $stmt->fetch();
-        $r['date'] = str_replace('-', '/', $row['created_at']);
+        $r['id'] = (int)$row['message_id'];
+        $r['user'] = [
+                'id' => (int)$row['user_id'],
+                'name' => $row['name'],
+                'display_name' => $row['display_name'],
+                'avatar_icon' => $row['avatar_icon']
+        ];
+        $r['date'] = str_replace('-', '/', $row['date']);
         $r['content'] = $row['content'];
         $messages[] = $r;
     }
@@ -369,9 +407,10 @@ $app->get('/profile/{user_name}', function (Request $request, Response $response
     $userName = $request->getAttribute('user_name');
     list($channels, $_) = get_channel_list_info();
 
-    $stmt = getPDO()->prepare("SELECT * FROM user WHERE name = ?");
-    $stmt->execute([$userName]);
-    $user = $stmt->fetch();
+    #    $stmt = getPDO()->prepare("SELECT * FROM user WHERE name = ?");
+    $client = getRedis();
+    $user = unserialize($client->get($userName));
+
     if (!$user) {
         return $response->withStatus(404);
     }
@@ -422,14 +461,20 @@ $app->post('/profile', function (Request $request, Response $response) {
         return $response->withStatus(403);
     }
 
+
     $pdo = getPDO();
     $user = db_get_user($pdo, $userId);
     if (!$user) {
         return $response->withStatus(403);
     }
 
+    // 変更した時には古い情報の削除
+    $client = getRedis();
+    $client->set($user['id'], null);
+    $client->set($user['name'], null);
+
     $displayName = $request->getParam('display_name');
-    $avatarName = null;
+    $avatarName = $user['avatar_name'];
     $avatarData = null;
 
     $uploadedFile = $request->getUploadedFiles()['avatar_icon'] ?? null;
@@ -453,18 +498,18 @@ $app->post('/profile', function (Request $request, Response $response) {
     }
 
     if ($avatarName && $avatarData) {
-        $stmt = $pdo->prepare("INSERT INTO image (name, data) VALUES (?, ?)");
-        $stmt->bindParam(1, $avatarName);
-        $stmt->bindParam(2, $avatarData, PDO::PARAM_LOB);
-        $stmt->execute();
-        $stmt = $pdo->prepare("UPDATE user SET avatar_icon = ? WHERE id = ?");
-        $stmt->execute([$avatarName, $userId]);
+        $selectStmt = $pdo->prepare("SELECT avatar_icon FROM user WHERE id = ?");
+	$selectStmt->execute([$userId]);
+        $row = $selectStmt->fetch();
+	if (!is_null($row)) {
+		if ($row['avatar_icon'] !== $avatarName) file_put_contents("icons/$avatarName", $avatarData);
+	} else {
+		file_put_contents("icons/$avatarName", $avatarData);
+	}
     }
 
-    if ($displayName) {
-        $stmt = $pdo->prepare("UPDATE user SET display_name = ? WHERE id = ?");
-        $stmt->execute([$displayName, $userId]);
-    }
+    $stmt = $pdo->prepare("UPDATE user SET display_name = ? , avatar_icon = ?  WHERE id = ?");
+    $stmt->execute([$displayName, $avatarName, $userId]);
 
     return $response->withRedirect('/', 303);
 })->add($loginRequired);
@@ -485,7 +530,9 @@ function ext2mime($ext)
 }
 
 $app->get('/icons/{filename}', function (Request $request, Response $response) {
-    $filename = $request->getAttribute('filename');
+// このブロックは nginxからの配信なので無し
+/*    
+	$filename = $request->getAttribute('filename');
     $stmt = getPDO()->prepare("SELECT * FROM image WHERE name = ?");
     $stmt->execute([$filename]);
     $row = $stmt->fetch();
@@ -498,6 +545,7 @@ $app->get('/icons/{filename}', function (Request $request, Response $response) {
         return $response->withHeader('Content-type', $mime);
     }
     return $response->withStatus(404);
+ */
 });
 
 $app->run();
