@@ -29,7 +29,9 @@ Predisよりもphpredisの方が早いはずなので入れ替えてみる
 /home/isucon/local/php/etc/php.ini に 以下のものを書いて有効かした。
 extension=redis.so
 
-TODO  コードで利用してみる！！！！！！！！！！　
+コードから利用。
+上記のものを書き換えた後に nginx と fpm の再起動をした。しないと Redis Class not found
+
 
 参考: https://qiita.com/shinkuFencer/items/72f2617fb1db2134e340
 

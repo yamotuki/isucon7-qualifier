@@ -17,10 +17,10 @@ define("AVATAR_MAX_SIZE", 1 * 1024 * 1024);
 
 function getRedis() 
 {
-    return new Predis\Client([
-       'host'   => '172.24.50.39',
-       'port'   => 6379
-    ]);
+    $redis = new Redis(); 
+    $redis->connect('172.24.50.39', 6379);
+
+    return $redis;
 }
 
 function getPDO()
@@ -466,8 +466,7 @@ $app->post('/profile', function (Request $request, Response $response) {
 
     // 変更した時には古い情報の削除
     $client = getRedis();
-    $client->set($user['id'], null);
-    $client->set($user['name'], null);
+    $client->delete([$user['id'], $user['name']]);
 
     $displayName = $request->getParam('display_name');
     $avatarName = $user['avatar_name'];
