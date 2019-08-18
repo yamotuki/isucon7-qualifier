@@ -320,16 +320,12 @@ $app->get('/fetch', function (Request $request, Response $response) {
         if ($row) {
             $lastMessageId = $row['message_id'];
             $stmt = $dbh->prepare(
-                "SELECT COUNT(*) as cnt ".
-                "FROM message ".
-                "WHERE channel_id = ? AND ? < id"
+                "SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id"
             );
             $stmt->execute([$channelId, $lastMessageId]);
         } else {
             $stmt = $dbh->prepare(
-                "SELECT COUNT(*) as cnt ".
-                "FROM message ".
-                "WHERE channel_id = ?"
+                "SELECT SQL_CACHE COUNT(*) as cnt FROM message WHERE channel_id = ?"
             );
             $stmt->execute([$channelId]);
         }
@@ -351,7 +347,7 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
     $page = (int)$page;
 
     $dbh = getPDO();
-    $stmt = $dbh->prepare("SELECT COUNT(*) as cnt FROM message WHERE channel_id = ?");
+    $stmt = $dbh->prepare("SELECT SQL_CACHE COUNT(*) as cnt FROM message WHERE channel_id = ?");
     $stmt->execute([$channelId]);
     $cnt = (int)($stmt->fetch()['cnt']);
     $pageSize = 20;

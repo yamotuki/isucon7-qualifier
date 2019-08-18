@@ -8,8 +8,38 @@ webapp3台構成で動かせるようにして、nginxで振り分け。iconは1
 あんまりよくなってねー
 CPUは3台とも80パーセントくらいでいい感じ。ネットワークはそれぞれ25MBitくらいでサチってない。
 
+history の軽量化のためにCOUNTをCACHEに載せようかと格闘してみたが、失敗したので、query cacheに任せることにした。
+sizeをあげても影響なかったので、
+query_cache_type = 2　にして SQL_CACHE がSQLについているものだけキャッシュするようにする
+あと、COUNT の構文が全く同じになっていないとキャッシュ効かないので直す
+  "score": 108857,
+上がった。query cache 無駄だったか。というか再キャッシュに無駄な時間使っていたんだな。
+
+
+Predisよりもphpredisの方が早いはずなので入れ替えてみる
+/home/isucon/local/php/
+に srcを作ってそこで作業。
+ git clone https://github.com/phpredis/phpredis.git
+ cd phpredis/
+ phpize
+ ./configure
+ ls /home/isucon/local/php/lib/php/extensions/no-debug-non-zts-20160303/
+ここにsoファイルできたらしい.
+
+/home/isucon/local/php/etc/php.ini に 以下のものを書いて有効かした。
+extension=redis.so
+
+TODO  コードで利用してみる！！！！！！！！！！　
+
+参考: https://qiita.com/shinkuFencer/items/72f2617fb1db2134e340
+
+php.ini で opcache 有効化されていないようなのでそれも追加してやる。
+TODO 設定！！！！！！！！！！！！！ 
+
 dstat は netの単位が Byte, vnstat -l は bit なので紛らわしい。
 
+
+TODO  xfprof とかいうプロファイラツール見てみる !!!!!!!!!!!!!!! 
 
 ISUCON7 予選問題
 ====
