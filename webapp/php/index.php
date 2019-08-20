@@ -15,6 +15,7 @@ date_default_timezone_set('Asia/Tokyo');
 define("TWIG_TEMPLATE_FOLDER", realpath(__DIR__) . "/views");
 define("AVATAR_MAX_SIZE", 1 * 1024 * 1024);
 
+
 function getRedis() 
 {
     $redis = new Redis(); 
@@ -339,6 +340,8 @@ $app->get('/fetch', function (Request $request, Response $response) {
 });
 
 $app->get('/history/{channel_id}', function (Request $request, Response $response) {
+    tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
+
     $page = $request->getParam('page') ?? '1';
     $channelId = $request->getAttribute('channel_id');
     if (!is_numeric($page)) {
@@ -385,6 +388,11 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
     }
     $messages = array_reverse($messages);
 
+    file_put_contents(
+        '/tmp/myapplication.xhprof',
+        json_encode(tideways_xhprof_disable())
+    );
+
     list($channels, $description) = get_channel_list_info($channelId);
     return $this->view->render(
         $response,
@@ -396,7 +404,8 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
             'max_page' => $maxPage,
             'page' => $page
         ]
-    );
+);
+
 })->add($loginRequired);
 
 $app->get('/profile/{user_name}', function (Request $request, Response $response) {
@@ -544,3 +553,4 @@ $app->get('/icons/{filename}', function (Request $request, Response $response) {
 });
 
 $app->run();
+

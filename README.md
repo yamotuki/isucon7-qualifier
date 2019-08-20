@@ -31,7 +31,8 @@ extension=redis.so
 
 コードから利用。
 上記のものを書き換えた後に nginx と fpm の再起動をした。しないと Redis Class not found
-
+  "score": 88028,
+前のScoreよりもよくなっていないが、しばらく7万台くらいだったのでよくなっているっぽい。積み重ね
 
 参考: https://qiita.com/shinkuFencer/items/72f2617fb1db2134e340
 
@@ -41,7 +42,22 @@ TODO 設定！！！！！！！！！！！！！
 dstat は netの単位が Byte, vnstat -l は bit なので紛らわしい。
 
 
-TODO  xfprof とかいうプロファイラツール見てみる !!!!!!!!!!!!!!! 
+xfprof とかいうプロファイラツール見てみる  => php7系だと tideway というやつっぽい
+https://github.com/tideways/php-profiler-extension に書かれているインストール手順を実行
+```
+php ini にも忘れずに書いて nginx, fpm restart 
+
+start の方は書いてある通りだけど output はパスを決めうちにした。後 json encode してhttps://codebeautify.org/jsonviewer　で見れるようにした。
+```
++    file_put_contents(
++        '/tmp/myapplication.xhprof',
++        json_encode(tideways_xhprof_disable())
++    );
+```
+
+結果、wt(wall time)＝実時間を見ればいいかという感じになった。
+
+
 
 ISUCON7 予選問題
 ====
