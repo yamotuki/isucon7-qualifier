@@ -389,7 +389,7 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
     $messages = array_reverse($messages);
 
     file_put_contents(
-        '/tmp/myapplication.xhprof',
+        '/tmp/history.xhprof',
         json_encode(tideways_xhprof_disable())
     );
 
