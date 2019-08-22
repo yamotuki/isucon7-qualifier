@@ -1,0 +1,74 @@
+server {
+        listen 80 default_server;
+        server_name isubata-external.example.com;
+        client_max_body_size 20M;
+
+        root /home/isucon/isubata/webapp/public;
+
+        location /favicon.ico {
+           expires 30d;
+           add_header Cache-Control public;
+           proxy_ignore_headers Cache-Control;
+         }
+        location /fonts/ {
+           expires 30d;
+           add_header Cache-Control public;
+           proxy_ignore_headers Cache-Control;
+        }
+        location /js/ {
+           expires 30d;
+           add_header Cache-Control public;
+           proxy_ignore_headers Cache-Control;
+        }
+        location /css/ {
+           expires 30d;
+           add_header Cache-Control public;
+           proxy_ignore_headers Cache-Control;
+       }
+
+        location /icons/ {
+           expires 30d;
+           add_header Cache-Control public;
+           proxy_ignore_headers Cache-Control;
+        }
+
+        location / {
+                proxy_set_header Host $http_host;
+                proxy_pass http://backend;
+        }
+}
+
+upstream backend {
+  server 127.0.0.1:8080 weight=20;
+  server 172.24.50.40:80 weight=8;
+  server 172.24.50.41:80 weight=40;
+}
+
+server {
+        listen 8080 default_server;
+        listen [::]:80 default_server;
+        server_name isubata.example.com;
+
+        client_max_body_size 20M;
+
+        root /home/isucon/isubata/webapp/php;
+
+        index index.php;
+        location / {
+               if (!-f $request_filename) {
+                       rewrite ^(.+)$ /index.php$1 last;
+               }
+                proxy_set_header Host $http_host;
+                proxy_pass http://backend;
+        }
+
+         location ~ [^/]\.php(/|$) {
+                 root           /home/isucon/isubata/webapp/php;
+                 include        fastcgi_params;
+                 fastcgi_index  index.php;
+                 fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
+                 fastcgi_param  SCRIPT_NAME     $fastcgi_script_name;
+                 fastcgi_pass   unix:/var/run/php/php-fpm.sock;
+        }
+}
+
