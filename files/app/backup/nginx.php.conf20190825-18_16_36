@@ -51,7 +51,7 @@ server {
 
         client_max_body_size 20M;
 
-        root /home/isucon/isubata/webapp/public;
+        root /home/isucon/isubata/webapp/php/public;
 
         index index.php;
         location / {
