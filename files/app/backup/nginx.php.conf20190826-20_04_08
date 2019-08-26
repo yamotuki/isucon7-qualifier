@@ -32,6 +32,11 @@ server {
            proxy_ignore_headers Cache-Control;
         }
 
+	location /profile/ {
+           proxy_set_header Host $http_host;
+           proxy_pass http://127.0.0.1:8080;
+        }
+
         location / {
                 proxy_set_header Host $http_host;
                 proxy_pass http://backend;
@@ -39,9 +44,9 @@ server {
 }
 
 upstream backend {
-  server 172.24.50.39:8080 weight=20;
-  server 172.24.50.40:8080 weight=8;
-  server 172.24.50.41:8080 weight=40;
+  server 127.0.0.1:8080 weight=20;
+  server 172.24.50.40:80 weight=8;
+  server 172.24.50.41:80 weight=40;
 }
 
 server {
