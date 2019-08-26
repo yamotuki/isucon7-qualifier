@@ -114,4 +114,4 @@ long_query_time               = 1
 log-queries-not-using-indexes = 1
 innodb_flush_method = O_DIRECT
 
-innodb_buffer_pool_size = 400M
+innodb_buffer_pool_size = 600M
