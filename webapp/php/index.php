@@ -163,11 +163,20 @@ $app->get('/', function (Request $request, Response $response) {
 });
 
 function get_channel_list_info($focusedChannelId = null)
-{
-    $stmt = getPDO()->query("SELECT * FROM channel ORDER BY id");
-    $channels = $stmt->fetchall();
-    $description = "";
+{  
+    $client = getRedis();
 
+    $channels_serialized = $client->get('channels');
+    if ($channels_serialized === false) {
+       $stmt = getPDO()->query("SELECT * FROM channel ORDER BY id");
+       $channels = $stmt->fetchall();
+       $description = "";
+       
+       $client->set('channels', serialize($channels));
+    } else {
+      $channels = unserialize($channels_serialized);
+    } 
+	
     foreach ($channels as $channel) {
         if ((int)$channel['id'] === (int)$focusedChannelId) {
             $description = $channel['description'];
@@ -352,6 +361,7 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
     $stmt = $dbh->prepare("SELECT SQL_CACHE COUNT(*) as cnt FROM message WHERE channel_id = ?");
     $stmt->execute([$channelId]);
     $cnt = (int)($stmt->fetch()['cnt']);
+    
     $pageSize = 20;
     $maxPage = ceil($cnt / $pageSize);
     if ($maxPage == 0) {
@@ -457,6 +467,7 @@ $app->post('/add_channel', function (Request $request, Response $response) {
         "VALUES (?, ?, NOW(), NOW())"
     );
     $stmt->execute([$name, $description]);
+
     $channelId = $dbh->lastInsertId();
     return $response->withRedirect("/channel/$channelId", 303);
 })->add($loginRequired);
