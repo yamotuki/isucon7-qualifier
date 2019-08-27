@@ -39,8 +39,9 @@ server {
 }
 
 upstream backend {
-  server 172.24.50.39:8080;
-  server 172.24.50.41:8080;
+  server 172.24.50.39:8080 weight=20;
+  server 172.24.50.40:8080 weight=8;
+  server 172.24.50.41:8080 weight=40;
 }
 
 server {

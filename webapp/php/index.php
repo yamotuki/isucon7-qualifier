@@ -340,7 +340,6 @@ $app->get('/fetch', function (Request $request, Response $response) {
 });
 
 $app->get('/history/{channel_id}', function (Request $request, Response $response) {
-    tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
 
     $page = $request->getParam('page') ?? '1';
     $channelId = $request->getAttribute('channel_id');
@@ -362,6 +361,8 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
     if ($page < 1 || $maxPage < $page) {
         return $response->withStatus(400);
     }
+
+    tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
 
     $offset = ($page - 1) * $pageSize;
     $stmt = $dbh->prepare(
@@ -461,7 +462,9 @@ $app->post('/add_channel', function (Request $request, Response $response) {
 })->add($loginRequired);
 
 $app->post('/profile', function (Request $request, Response $response) {
-    $userId = FigRequestCookies::get($request, 'user_id')->getValue();
+     tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
+
+	$userId = FigRequestCookies::get($request, 'user_id')->getValue();
     if (!$userId) {
         return $response->withStatus(403);
     }
@@ -514,6 +517,11 @@ $app->post('/profile', function (Request $request, Response $response) {
 
     $stmt = $pdo->prepare("UPDATE user SET display_name = ? , avatar_icon = ?  WHERE id = ?");
     $stmt->execute([$displayName, $avatarName, $userId]);
+
+    file_put_contents(
+        '/tmp/profile.xhprof.' . time(),
+        json_encode(tideways_xhprof_disable())
+    );
 
     return $response->withRedirect('/', 303);
 })->add($loginRequired);
