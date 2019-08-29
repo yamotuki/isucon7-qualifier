@@ -74,6 +74,7 @@ $app->get('/initialize', function (Request $request, Response $response) {
     $dbh->query("DELETE FROM haveread");
 
     $client = getRedis();
+    $client->flushall();
     $users = $dbh->query("SELECT name, password FROM user");
     foreach ($users as $user) {
 	    $client->set($user['name'], serialize($user));
