@@ -163,6 +163,17 @@ $app->get('/', function (Request $request, Response $response) {
     return $this->view->render($response, 'index.twig', []);
 });
 
+function get_channel_ids_from_db(): array
+{
+    $stmt = getPDO()->query("SELECT id FROM channel");
+    $channels = $stmt->fetchall();
+    $ids = [];
+    foreach ($channels as $channel) {
+        $ids[] = $channel['id'];
+    }
+    return $ids;
+}
+
 function get_channel_list_info($focusedChannelId = null)
 {
     $client = getRedis();
@@ -294,12 +305,10 @@ $app->get('/message', function (Request $request, Response $response) {
     foreach ($rows as $row) {
         $maxMessageId = max($maxMessageId, $row['message_id']);
     }
-    $stmt = $dbh->prepare(
-        "INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) " .
-        "VALUES (?, ?, ?, NOW(), NOW()) " .
-        "ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()"
-    );
-    $stmt->execute([$userId, $channelId, $maxMessageId, $maxMessageId]);
+
+    $client = getRedis();
+    $client->set('haveread_' . $userId . '_' . $channelId, $maxMessageId);
+
     return $response->withJson($res);
 });
 
@@ -309,9 +318,10 @@ $app->get('/fetch', function (Request $request, Response $response) {
         return $response->withStatus(403);
     }
 
-    #   sleep(1);
+    usleep(500000);
 
     $dbh = getPDO();
+    // TODO あとで直す
     $stmt = $dbh->query('SELECT id FROM channel');
     $rows = $stmt->fetchall();
     $channelIds = [];
@@ -320,16 +330,10 @@ $app->get('/fetch', function (Request $request, Response $response) {
     }
 
     $res = [];
+    $client = getRedis();
     foreach ($channelIds as $channelId) {
-        $stmt = $dbh->prepare(
-            "SELECT * " .
-            "FROM haveread " .
-            "WHERE user_id = ? AND channel_id = ?"
-        );
-        $stmt->execute([$userId, $channelId]);
-        $row = $stmt->fetch();
-        if ($row) {
-            $lastMessageId = $row['message_id'];
+        $lastMessageId = $client->get('haveread_' . $userId . '_' . $channelId);
+        if ($haveread !== false) {
             $stmt = $dbh->prepare(
                 "SELECT COUNT(*) as cnt FROM message WHERE channel_id = ? AND ? < id"
             );
