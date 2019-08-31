@@ -44,6 +44,7 @@ dstat は netの単位が Byte, vnstat -l は bit なので紛らわしい。
 
 xfprof とかいうプロファイラツール見てみる  => php7系だと tideway というやつっぽい
 https://github.com/tideways/php-profiler-extension に書かれているインストール手順を実行
+
 ```
 php ini にも忘れずに書いて nginx, fpm restart 
 
@@ -86,6 +87,7 @@ get_channel_list のメソッドが共通で使われていてDBアクセスし�
 
 DBがたまにロックされていて重いかもということで、lock の状態をタイミングよく撮ってみる
 `$ mysql -uisucon -pisucon isubata -e "  set GLOBAL innodb_status_output_locks=ON; SHOW ENGINE INNODB STATUS \G" | grep -A 10 "mysql tables in use"`
+
 ```
 mysql tables in use 1, locked 1
 2 lock struct(s), heap size 1136, 1 row lock(s), undo log entries 1
@@ -95,6 +97,7 @@ TABLE LOCK table `isubata`.`haveread` trx id 451236 lock mode IX
 RECORD LOCKS space id 31 page no 3 n bits 264 index PRIMARY of table `isubata`.`haveread` trx id 451236 lock_mode X locks rec but not gap
 Record lock, heap no 145 PHYSICAL RECORD: n_fields 7; compact format; info bits 0
 ```
+
 ```
 mysql tables in use 1, locked 1
 1 lock struct(s), heap size 1136, 0 row lock(s), undo log entries 1
@@ -102,6 +105,7 @@ MySQL thread id 124213, OS thread handle 140206897833728, query id 9834157 172.2
 INSERT INTO message (channel_id, user_id, content, created_at) VALUES ('2', '658', '温泉は三階の新築で上等は浴衣をかして、流しをつけて八銭で済む。とうてい東京などじゃあの味はわかりませんね柿はいいがそれから、どうしたいと今度は東風君がきく。何気なくこれを囲炉裏の傍へ置いたから、その中を覗いて見ると――いたね。', NOW())
 TABLE LOCK table `isubata`.`message` trx id 431851 lock mode IX
 ```
+
 messege と haveread について。
 message についてはINSERT単体なので、デッドロック起こらなさそうだが、分離レベルが高い場合に、SELECT COUNT とかと競合してロックが起こるというのはあるそう（デッドロックじゃなくて単なる排他ロック？）。 => これについては分離レベルがデプロイ関係かで巻き戻ってしまっていたようなので再度入れた。
 `$ mysql -uisucon -pisucon isubata -e "show variables"` 値が入っているかどうかはこれで確認できる。
@@ -111,6 +115,10 @@ message についてはINSERT単体なので、デッドロック起こらなさ
   "score": 119436,　　すこだけ良い。
 Redisのめもり使用量も割り当て50Mに対して 1.3M、CPU使用率も他のも合わせて70％程度なので特に性能の問題はなさそう。
 
+history がslow path に出ていて、COUNT messageでwtで600以上。よく考えると、IndexあってもCOUNT で1000件以上数え上げるので思い。
+`root@isucon7-db:~# mysql -uisucon -pisucon isubata -e "show GLOBAL status" | egrep "Qcache|Com_select"`
+これでQueryCache きいているのか？と思って調べたがうまくいってなさそう。なのでやはりキャッシュに乗せる作戦を考える。
+やってみたが、なんかベンチマークの時だけerrorが出てしまって一旦なし。またあとでやってみる。
 
 
 ISUCON7 予選問題
