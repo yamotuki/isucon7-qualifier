@@ -78,7 +78,35 @@ execute 重くて, dbサーバがCPUきつそうなので、DBサーバにWebapp
 
 history の結構後ろの方の番号にアクセスがあって、中身が何もないのにSlowpathと言われてしまっている。高速化できないか。
 get_channel_list のメソッドが共通で使われていてDBアクセスしているのでキャッシュに載せることに。三台にちゃんと配ってどうなるか・・・
+  "score": 108639,
+悪くないな。一旦これで残す。　
 
+2台のキャッシュ乗せるまでの競合とか、add_channel のたびに消えてしまう問題とか直したらもっと良さそう。
+競合の方はキャッシュ乗せるタイミングをadd_channel にするので直した　つもりだが、ヘッダの一部が消えてしまう問題が治らず・・・  => これは諦め。
+
+DBがたまにロックされていて重いかもということで、lock の状態をタイミングよく撮ってみる
+`$ mysql -uisucon -pisucon isubata -e "  set GLOBAL innodb_status_output_locks=ON; SHOW ENGINE INNODB STATUS \G" | grep -A 10 "mysql tables in use"`
+```
+mysql tables in use 1, locked 1
+2 lock struct(s), heap size 1136, 1 row lock(s), undo log entries 1
+MySQL thread id 10876, OS thread handle 140514757854976, query id 615269 172.24.50.41 isucon query end
+INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) VALUES ('660', '6495', '87508', NOW(), NOW()) ON DUPLICATE KEY UPDATE message_id = '87508', updated_at = NOW()
+TABLE LOCK table `isubata`.`haveread` trx id 451236 lock mode IX
+RECORD LOCKS space id 31 page no 3 n bits 264 index PRIMARY of table `isubata`.`haveread` trx id 451236 lock_mode X locks rec but not gap
+Record lock, heap no 145 PHYSICAL RECORD: n_fields 7; compact format; info bits 0
+```
+```
+mysql tables in use 1, locked 1
+1 lock struct(s), heap size 1136, 0 row lock(s), undo log entries 1
+MySQL thread id 124213, OS thread handle 140206897833728, query id 9834157 172.24.50.41 isucon update
+INSERT INTO message (channel_id, user_id, content, created_at) VALUES ('2', '658', '温泉は三階の新築で上等は浴衣をかして、流しをつけて八銭で済む。とうてい東京などじゃあの味はわかりませんね柿はいいがそれから、どうしたいと今度は東風君がきく。何気なくこれを囲炉裏の傍へ置いたから、その中を覗いて見ると――いたね。', NOW())
+TABLE LOCK table `isubata`.`message` trx id 431851 lock mode IX
+```
+messege と haveread について。
+message についてはINSERT単体なので、デッドロック起こらなさそうだが、分離レベルが高い場合に、SELECT COUNT とかと競合してロックが起こるというのはあるそう（デッドロックじゃなくて単なる排他ロック？）。 => これについては分離レベルがデプロイ関係かで巻き戻ってしまっていたようなので再度入れた。
+`$ mysql -uisucon -pisucon isubata -e "show variables"` 値が入っているかどうかはこれで確認できる。
+
+じゃあ haveread だが、これはやっぱりキャッシュ乗せるか？
 
 ISUCON7 予選問題
 ====
@@ -136,10 +164,6 @@ xbuild/perl-install   -f 5.26.1  /home/isucon/local/perl
 xbuild/node-install   -f v6.11.4 /home/isucon/local/node
 xbuild/go-install     -f 1.9     /home/isucon/local/go
 xbuild/python-install -f 3.6.2   /home/isucon/local/python
-xbuild/php-install    -f 7.1.9   /home/isucon/local/php -- --disable-phar --with-pcre-regex --with-zlib --enable-fpm --enable-pdo --with-mysqli=mysqlnd --with-pdo-mysql=mysqlnd --with-openssl --with-pcre-regex --with-pcre-dir --with-libxml-dir --enable-opcache --enable-bcmath --with-bz2 --enable-calendar --enable-cli --enable-shmop --enable-sysvsem --enable-sysvshm --enable-sysvmsg --enable-mbregex --enable-mbstring --with-mcrypt --enable-pcntl --enable-sockets --with-curl --enable-zip --with-pearAA
-```
-
-### ベンチマーカーの準備
 
 Goを使うのでこれだけは最初に環境変数を設定しておく
 
@@ -245,3 +269,7 @@ systemd に置く設定ファイルなどは files/ ディレクトリから探�
 - なんちゃって個人情報 http://kazina.com/dummy/
 - いらすとや http://www.irasutoya.com/
 - pixabay https://pixabay.com/
+書き換え部分について
+=====
+phpのコードとwebapp配下のREADMEについてはこちらで途中まで管理していたが、複数サーバ構成にするにあたりこちらのレポジトリに移ってきた。
+https://github.com/yamotuki/isucon7-qualifier-php
