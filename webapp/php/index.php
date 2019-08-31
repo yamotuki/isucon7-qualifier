@@ -16,9 +16,9 @@ define("TWIG_TEMPLATE_FOLDER", realpath(__DIR__) . "/views");
 define("AVATAR_MAX_SIZE", 1 * 1024 * 1024);
 
 
-function getRedis() 
+function getRedis()
 {
-    $redis = new Redis(); 
+    $redis = new Redis();
     $redis->connect('172.24.50.39', 6379);
 
     return $redis;
@@ -77,8 +77,8 @@ $app->get('/initialize', function (Request $request, Response $response) {
     $client->flushall();
     $users = $dbh->query("SELECT name, password FROM user");
     foreach ($users as $user) {
-	    $client->set($user['name'], serialize($user));
-	    $client->set($user['id'], serialize($user));
+        $client->set($user['name'], serialize($user));
+        $client->set($user['id'], serialize($user));
     }
 
     $response->withStatus(204);
@@ -89,7 +89,7 @@ function db_get_user($dbh, $userId)
     $client = getRedis();
     $cached = $client->get($userId);
     if ($cached) {
-	 return unserialize($cached);
+        return unserialize($cached);
     }
 
     $stmt = $dbh->prepare("SELECT * FROM user WHERE id = ?");
@@ -142,10 +142,10 @@ function random_string($length)
 function register($dbh, $userName, $password)
 {
 //	 $salt = random_string(20);
-	$salt = 'salt';
+    $salt = 'salt';
     $passDigest = sha1(utf8_encode($salt . $password));
     $stmt = $dbh->prepare(
-        "INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) ".
+        "INSERT INTO user (name, salt, password, display_name, avatar_icon, created_at) " .
         "VALUES (?, ?, ?, ?, 'default.png', NOW())"
     );
     $stmt->execute([$userName, $salt, $passDigest, $userName]);
@@ -164,20 +164,20 @@ $app->get('/', function (Request $request, Response $response) {
 });
 
 function get_channel_list_info($focusedChannelId = null)
-{  
+{
     $client = getRedis();
 
     $channels_serialized = $client->get('channels');
     if ($channels_serialized === false) {
-       $stmt = getPDO()->query("SELECT * FROM channel ORDER BY id");
-       $channels = $stmt->fetchall();
-       $description = "";
-       
-       $client->set('channels', serialize($channels));
+        $stmt = getPDO()->query("SELECT * FROM channel ORDER BY id");
+        $channels = $stmt->fetchall();
+        $description = "";
+
+        $client->set('channels', serialize($channels));
     } else {
-      $channels = unserialize($channels_serialized);
-    } 
-	
+        $channels = unserialize($channels_serialized);
+    }
+
     foreach ($channels as $channel) {
         if ((int)$channel['id'] === (int)$focusedChannelId) {
             $description = $channel['description'];
@@ -206,7 +206,7 @@ $app->get('/register', function (Request $request, Response $response) {
 });
 
 $app->post('/register', function (Request $request, Response $response) {
-    $name     = $request->getParam('name');
+    $name = $request->getParam('name');
     $password = $request->getParam('password');
     if (!$name || !$password) {
         return $response->withStatus(400);
@@ -267,9 +267,9 @@ $app->get('/message', function (Request $request, Response $response) {
     $lastMessageId = $request->getParam('last_message_id');
     $dbh = getPDO();
     $stmt = $dbh->prepare(
-        "SELECT message.id as message_id, user.id as user_id, channel_id, content, message.created_at as date, name, display_name, avatar_icon ".
-	"FROM message ".
-	"INNER JOIN user ON message.user_id = user.id ".
+        "SELECT message.id as message_id, user.id as user_id, channel_id, content, message.created_at as date, name, display_name, avatar_icon " .
+        "FROM message " .
+        "INNER JOIN user ON message.user_id = user.id " .
         "WHERE message.id > ? AND message.channel_id = ? ORDER BY message.id DESC LIMIT 100"
     );
     $stmt->execute([$lastMessageId, $channelId]);
@@ -278,12 +278,12 @@ $app->get('/message', function (Request $request, Response $response) {
     foreach ($rows as $row) {
         $r = [];
         $r['id'] = (int)$row['message_id'];
-	$r['user'] = [
-		'id' => (int)$row['user_id'],
-		'name' => $row['name'],
-		'display_name' => $row['display_name'],
-		'avatar_icon' => $row['avatar_icon']
-	];
+        $r['user'] = [
+            'id' => (int)$row['user_id'],
+            'name' => $row['name'],
+            'display_name' => $row['display_name'],
+            'avatar_icon' => $row['avatar_icon']
+        ];
         $r['date'] = str_replace('-', '/', $row['date']);
         $r['content'] = $row['content'];
         $res[] = $r;
@@ -295,8 +295,8 @@ $app->get('/message', function (Request $request, Response $response) {
         $maxMessageId = max($maxMessageId, $row['message_id']);
     }
     $stmt = $dbh->prepare(
-        "INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) ".
-        "VALUES (?, ?, ?, NOW(), NOW()) ".
+        "INSERT INTO haveread (user_id, channel_id, message_id, updated_at, created_at) " .
+        "VALUES (?, ?, ?, NOW(), NOW()) " .
         "ON DUPLICATE KEY UPDATE message_id = ?, updated_at = NOW()"
     );
     $stmt->execute([$userId, $channelId, $maxMessageId, $maxMessageId]);
@@ -309,7 +309,7 @@ $app->get('/fetch', function (Request $request, Response $response) {
         return $response->withStatus(403);
     }
 
- #   sleep(1);
+    #   sleep(1);
 
     $dbh = getPDO();
     $stmt = $dbh->query('SELECT id FROM channel');
@@ -322,8 +322,8 @@ $app->get('/fetch', function (Request $request, Response $response) {
     $res = [];
     foreach ($channelIds as $channelId) {
         $stmt = $dbh->prepare(
-            "SELECT * ".
-            "FROM haveread ".
+            "SELECT * " .
+            "FROM haveread " .
             "WHERE user_id = ? AND channel_id = ?"
         );
         $stmt->execute([$userId, $channelId]);
@@ -362,7 +362,7 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
     $stmt = $dbh->prepare("SELECT SQL_CACHE COUNT(*) as cnt FROM message WHERE channel_id = ?");
     $stmt->execute([$channelId]);
     $cnt = (int)($stmt->fetch()['cnt']);
-    
+
     $pageSize = 20;
     $maxPage = ceil($cnt / $pageSize);
     if ($maxPage == 0) {
@@ -377,9 +377,9 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
 
     $offset = ($page - 1) * $pageSize;
     $stmt = $dbh->prepare(
-        "SELECT message.id as message_id, user.id as user_id, channel_id, content, message.created_at as date, name, display_name, avatar_icon ".
-        "FROM message ".
-        "INNER JOIN user ON message.user_id = user.id ".
+        "SELECT message.id as message_id, user.id as user_id, channel_id, content, message.created_at as date, name, display_name, avatar_icon " .
+        "FROM message " .
+        "INNER JOIN user ON message.user_id = user.id " .
         "WHERE channel_id = ? ORDER BY message.id DESC LIMIT $pageSize OFFSET $offset"
     );
     $stmt->execute([$channelId]);
@@ -389,10 +389,10 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
         $r = [];
         $r['id'] = (int)$row['message_id'];
         $r['user'] = [
-                'id' => (int)$row['user_id'],
-                'name' => $row['name'],
-                'display_name' => $row['display_name'],
-                'avatar_icon' => $row['avatar_icon']
+            'id' => (int)$row['user_id'],
+            'name' => $row['name'],
+            'display_name' => $row['display_name'],
+            'avatar_icon' => $row['avatar_icon']
         ];
         $r['date'] = str_replace('-', '/', $row['date']);
         $r['content'] = $row['content'];
@@ -416,7 +416,7 @@ $app->get('/history/{channel_id}', function (Request $request, Response $respons
             'max_page' => $maxPage,
             'page' => $page
         ]
-);
+    );
 
 })->add($loginRequired);
 
@@ -464,7 +464,7 @@ $app->post('/add_channel', function (Request $request, Response $response) {
 
     $dbh = getPDO();
     $stmt = $dbh->prepare(
-        "INSERT INTO channel (name, description, updated_at, created_at) ".
+        "INSERT INTO channel (name, description, updated_at, created_at) " .
         "VALUES (?, ?, NOW(), NOW())"
     );
     $stmt->execute([$name, $description]);
@@ -474,9 +474,9 @@ $app->post('/add_channel', function (Request $request, Response $response) {
 })->add($loginRequired);
 
 $app->post('/profile', function (Request $request, Response $response) {
-     tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
+    tideways_xhprof_enable(TIDEWAYS_XHPROF_FLAGS_MEMORY | TIDEWAYS_XHPROF_FLAGS_CPU);
 
-	$userId = FigRequestCookies::get($request, 'user_id')->getValue();
+    $userId = FigRequestCookies::get($request, 'user_id')->getValue();
     if (!$userId) {
         return $response->withStatus(403);
     }
@@ -518,13 +518,15 @@ $app->post('/profile', function (Request $request, Response $response) {
 
     if ($avatarName && $avatarData) {
         $selectStmt = $pdo->prepare("SELECT avatar_icon FROM user WHERE id = ?");
-	$selectStmt->execute([$userId]);
+        $selectStmt->execute([$userId]);
         $row = $selectStmt->fetch();
-	if (!is_null($row)) {
-		if ($row['avatar_icon'] !== $avatarName) file_put_contents("icons/$avatarName", $avatarData);
-	} else {
-		file_put_contents("icons/$avatarName", $avatarData);
-	}
+        if (!is_null($row)) {
+            if ($row['avatar_icon'] !== $avatarName) {
+                file_put_contents("icons/$avatarName", $avatarData);
+            }
+        } else {
+            file_put_contents("icons/$avatarName", $avatarData);
+        }
     }
 
     $stmt = $pdo->prepare("UPDATE user SET display_name = ? , avatar_icon = ?  WHERE id = ?");
@@ -555,21 +557,21 @@ function ext2mime($ext)
 
 $app->get('/icons/{filename}', function (Request $request, Response $response) {
 // このブロックは nginxからの配信なので無し
-/*    
-	$filename = $request->getAttribute('filename');
-    $stmt = getPDO()->prepare("SELECT * FROM image WHERE name = ?");
-    $stmt->execute([$filename]);
-    $row = $stmt->fetch();
+    /*
+        $filename = $request->getAttribute('filename');
+        $stmt = getPDO()->prepare("SELECT * FROM image WHERE name = ?");
+        $stmt->execute([$filename]);
+        $row = $stmt->fetch();
 
-    $ext = pathinfo($filename, PATHINFO_EXTENSION);
-    $mime = ext2mime($ext);
+        $ext = pathinfo($filename, PATHINFO_EXTENSION);
+        $mime = ext2mime($ext);
 
-    if ($row && $mime) {
-        $response->write($row['data']);
-        return $response->withHeader('Content-type', $mime);
-    }
-    return $response->withStatus(404);
- */
+        if ($row && $mime) {
+            $response->write($row['data']);
+            return $response->withHeader('Content-type', $mime);
+        }
+        return $response->withStatus(404);
+     */
 });
 
 $app->run();
