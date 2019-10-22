@@ -45,10 +45,10 @@ dstat は netの単位が Byte, vnstat -l は bit なので紛らわしい。
 xfprof とかいうプロファイラツール見てみる  => php7系だと tideway というやつっぽい
 https://github.com/tideways/php-profiler-extension に書かれているインストール手順を実行
 
-```
 php ini にも忘れずに書いて nginx, fpm restart 
 
 start の方は書いてある通りだけど output はパスを決めうちにした。後 json encode してhttps://codebeautify.org/jsonviewer　で見れるようにした。
+
 ```
 +    file_put_contents(
 +        '/tmp/myapplication.xhprof',
